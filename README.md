@@ -53,11 +53,14 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
    dotnet sln add Lab01_SimpleAgent/Lab01_SimpleAgent.csproj
    ```
 
-3. **Configure API Keys**: Create an `appsettings.json` file (add to .gitignore!):
+3. **Create Shared Configuration** at solution root:
 
-   **For OpenAI**:
+   Create `appsettings.json` in the solution root directory (add to .gitignore!):
    ```json
    {
+     "AI": {
+       "Provider": "OpenAI"
+     },
      "OpenAI": {
        "ApiKey": "sk-...",
        "Model": "gpt-4o-mini"
@@ -69,118 +72,227 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
    }
    ```
 
-4. **Load Configuration**: In your `Program.cs`, add configuration loading:
+   **To switch providers**: Just change `"AI:Provider"` to either `"OpenAI"` or `"Ollama"` - all labs will automatically use the selected provider!
+
+4. **Create Shared Helper Class** at `Shared/AgentConfig.cs`:
    ```csharp
    using Microsoft.Extensions.Configuration;
+   using Microsoft.Extensions.AI;
+   using Microsoft.Agents.AI;
+   using OpenAI;
+   using OpenAI.Chat;
 
-   var configuration = new ConfigurationBuilder()
-       .AddJsonFile("appsettings.json", optional: false)
-       .Build();
+   /// <summary>
+   /// Shared configuration helper for all labs.
+   /// Automatically loads appsettings.json from solution root and provides AI client.
+   /// </summary>
+   public static class AgentConfig
+   {
+       private static IConfiguration? _configuration;
+
+       public static IConfiguration Configuration
+       {
+           get
+           {
+               _configuration ??= new ConfigurationBuilder()
+                   .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), ".."))
+                   .AddJsonFile("appsettings.json", optional: false)
+                   .Build();
+               return _configuration;
+           }
+       }
+
+       /// <summary>
+       /// Gets the configured AI chat client based on Provider setting in appsettings.json.
+       /// Currently only supports OpenAI.
+       /// </summary>
+       public static ChatClient GetChatClient()
+       {
+           var provider = Configuration["AI:Provider"] ?? "OpenAI";
+
+           return provider.ToLowerInvariant() switch
+           {
+               "openai" => GetOpenAIChatClient(),
+               _ => throw new InvalidOperationException(
+                   $"Unknown provider: {provider}. Currently only 'OpenAI' is supported.")
+           };
+       }
+
+       /// <summary>
+       /// Gets OpenAI chat client.
+       /// </summary>
+       public static ChatClient GetOpenAIChatClient()
+       {
+           var apiKey = Configuration["OpenAI:ApiKey"]
+               ?? throw new InvalidOperationException("OpenAI:ApiKey not found in appsettings.json");
+           var model = Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+
+           return new OpenAIClient(apiKey).GetChatClient(model);
+       }
+
+       /// <summary>
+       /// Gets the current provider name for display purposes.
+       /// </summary>
+       public static string GetProviderName()
+       {
+           var provider = Configuration["AI:Provider"] ?? "OpenAI";
+           var model = Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+           return $"{provider} ({model})";
+       }
+   }
+   ```
+
+5. **Required NuGet Packages for Each Lab**: Add to each `.csproj`:
+   ```xml
+   <ItemGroup>
+     <PackageReference Include="Microsoft.Extensions.AI" Version="9.9.1" />
+     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="9.9.0-preview.1.25458.4" />
+     <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251002.1" />
+     <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.251002.1" />
+     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
+     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
+     <PackageReference Include="OpenAI" Version="2.4.0" />
+   </ItemGroup>
+
+   <ItemGroup>
+     <Compile Include="..\Shared\AgentConfig.cs" Link="Shared\AgentConfig.cs" />
+   </ItemGroup>
    ```
 
 ---
 
 ## Lab 1: Create and Run a Simple Agent
 
-**Goal**: Build a basic AI agent using OpenAI or Ollama as the LLM backend.
+**Goal**: Build a basic AI agent that uses OpenAI (controlled by config).
 
-### Steps
-
-#### Using OpenAI
+### Complete Code
 
 ```csharp
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using OpenAI.Chat;
 
-// Configure OpenAI client
-var openAiApiKey = configuration["OpenAI:ApiKey"];
-var modelName = configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-
-var chatClient = new OpenAIClient(openAiApiKey)
-    .GetChatClient(modelName);
-
-// Create AI Agent
-AIAgent agent = chatClient.CreateAIAgent(
-    instructions: "You are good at telling jokes.",
-    name: "Joker");
-
-// Run the agent
-string userPrompt = "Tell me a joke about a pirate.";
-AgentRunResponse result = await agent.RunAsync(userPrompt);
-Console.WriteLine(result.ToString());
-```
-
-#### Using Ollama
-
-```csharp
-using Microsoft.Extensions.AI;
-
-// Configure Ollama client
-var ollamaEndpoint = configuration["Ollama:Endpoint"] ?? "http://localhost:11434";
-var modelName = configuration["Ollama:Model"] ?? "llama3.3:70b";
-
-var chatClient = new OllamaChatClient(
-    new Uri(ollamaEndpoint),
-    modelName);
-
-// Create AI Agent
-AIAgent agent = chatClient.CreateAIAgent(
-    instructions: "You are good at telling jokes.",
-    name: "Joker");
-
-// Run the agent
-string userPrompt = "Tell me a joke about a pirate.";
-AgentRunResponse result = await agent.RunAsync(userPrompt);
-Console.WriteLine(result.ToString());
-```
-
-### Streaming Support
-
-For real-time token-by-token output:
-
-```csharp
-await foreach (var update in agent.RunStreamingAsync(userPrompt))
+internal class Program
 {
-    Console.Write(update.Text);
+    private static async Task Main(string[] args)
+    {
+        // Automatically uses provider from appsettings.json (AI:Provider)
+        // Switch between "OpenAI" and "Ollama" by changing that setting
+        ChatClient chatClient = AgentConfig.GetChatClient();
+
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
+
+        // Create AI Agent with Jamaican history expertise
+        AIAgent agent = chatClient.CreateAIAgent(
+            instructions: "You are a PhD historian specializing in Jamaican history and Caribbean studies. " +
+                         "Provide detailed, accurate information with cultural context and sensitivity.",
+            name: "Professor JahMekYanBwoy");
+
+        // Run the agent with streaming for real-time response
+        string userPrompt = "Tell me about Jamaica's female national heroes and their contributions to the nation.";
+
+        Console.WriteLine($"📚 Question: {userPrompt}\n");
+        Console.WriteLine("💬 Response:\n");
+
+        await foreach (var update in agent.RunStreamingAsync(userPrompt))
+        {
+            Console.Write(update.Text);
+        }
+
+        Console.WriteLine("\n\n✅ Complete!");
+    }
 }
+```
+
+### How It Works
+
+- **Shared configuration**: Uses `AgentConfig.GetChatClient()` which reads from shared `appsettings.json`
+- **Returns ChatClient**: Note the return type is `ChatClient` from OpenAI SDK (not `IChatClient`)
+- **Streaming output**: Uses `RunStreamingAsync()` for real-time token-by-token display
+- **Themed prompts**: Agent is configured as a Jamaican history expert
+
+### Key Differences from Original Tutorial
+
+- Uses `ChatClient` (OpenAI SDK) instead of `IChatClient` (Microsoft.Extensions.AI)
+- Requires explicit using statements: `using OpenAI;` and `using OpenAI.Chat;`
+- Currently **OpenAI only** - Ollama support will be added in future labs
+
+### Try Different Prompts
+
+```csharp
+// Jamaican history and culture
+"Tell me about Jamaica's female national heroes and their contributions to the nation."
+"What was the significance of the Maroon Wars in Jamaica?"
+"Explain the cultural impact of Marcus Garvey on Jamaica and the diaspora."
+"Describe the development of reggae music and its cultural significance."
+
+// Caribbean studies
+"How did the sugar trade shape Caribbean societies?"
+"What role did Jamaica play in the broader Caribbean independence movement?"
 ```
 
 ---
 
 ## Lab 2: Using Images with an Agent
 
-**Goal**: Send an image URL to the agent for analysis (vision capabilities).
+**Goal**: Analyze images using vision-capable models.
 
-**Note**: For Ollama, use a vision-capable model like `llama3.2-vision:90b`
+**Note**: For Ollama, change the model in `appsettings.json` to `llama3.2-vision:90b`
 
-### Steps
+### Complete Code
 
 ```csharp
-// Configure agent for vision
-AIAgent agent = chatClient.CreateAIAgent(
-    name: "VisionAgent",
-    instructions: "You are a helpful agent that can analyze images");
+using Microsoft.Extensions.AI;
+using Microsoft.Agents.AI;
+using AgentFrameworkLabs.Shared;
 
-// Create multimodal message
-var message = new ChatMessage(
-    ChatRole.User,
-    new ChatMessageContent[]
+internal class Program
+{
+    private static async Task Main(string[] args)
     {
-        new TextContent("What do you see in this image?"),
-        new UriContent("https://upload.wikimedia.org/...", "image/jpeg")
-    });
+        var chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-// Send to agent
-var response = await agent.RunAsync(message);
-Console.WriteLine(response.Text);
+        // Create vision-capable agent
+        AIAgent agent = chatClient.CreateAIAgent(
+            name: "CaribbeanArtAnalyst",
+            instructions: "You are an art historian specializing in Caribbean and Jamaican visual culture. " +
+                         "Analyze images with attention to cultural, historical, and artistic context.");
+
+        // Create multimodal message with image
+        var message = new ChatMessage(
+            ChatRole.User,
+            new ChatMessageContent[]
+            {
+                new TextContent("Analyze this image and describe what you see. " +
+                              "If it depicts Caribbean or Jamaican culture, provide historical context."),
+                new UriContent("https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Marcus_Garvey_1924-08-05.jpg/440px-Marcus_Garvey_1924-08-05.jpg", "image/jpeg")
+            });
+
+        Console.WriteLine("🖼️ Analyzing image...\n");
+        var response = await agent.RunAsync(message);
+        Console.WriteLine(response.Text);
+    }
+}
 ```
 
-**For Ollama with llama3.2-vision:90b**:
-```csharp
-var chatClient = new OllamaChatClient(
-    new Uri("http://localhost:11434"),
-    "llama3.2-vision:90b");
+### Configuration for Vision Models
+
+**appsettings.json for Ollama vision**:
+```json
+{
+  "AI": {
+    "Provider": "Ollama"
+  },
+  "Ollama": {
+    "Endpoint": "http://localhost:11434",
+    "Model": "llama3.2-vision:90b"
+  }
+}
 ```
+
+**For OpenAI**: GPT-4o and GPT-4o-mini support vision natively
 
 ---
 
@@ -188,34 +300,64 @@ var chatClient = new OllamaChatClient(
 
 **Goal**: Enable multi-turn conversations with context memory.
 
-### Steps
+### Complete Code
 
 ```csharp
-// Create agent (OpenAI or Ollama)
-AIAgent agent = chatClient.CreateAIAgent(
-    instructions: "You are a helpful assistant.");
+using Microsoft.Extensions.AI;
+using Microsoft.Agents.AI;
+using AgentFrameworkLabs.Shared;
 
-// Obtain conversation thread
-AgentThread thread = agent.GetNewThread();
+internal class Program
+{
+    private static async Task Main(string[] args)
+    {
+        var chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-// Multi-turn dialog
-Console.WriteLine(await agent.RunAsync("Tell me a joke about a pirate.", thread));
-Console.WriteLine(await agent.RunAsync(
-    "Now add some emojis to that joke and tell it in a pirate parrot's voice.",
-    thread));
+        AIAgent agent = chatClient.CreateAIAgent(
+            instructions: "You are a knowledgeable guide on Jamaican music history and culture.",
+            name: "MusicHistorian");
+
+        // Create conversation thread to maintain context
+        AgentThread thread = agent.GetNewThread();
+
+        // Multi-turn dialog
+        Console.WriteLine("💬 Question 1:");
+        await foreach (var update in agent.RunStreamingAsync(
+            "Who was Bob Marley and what was his impact on reggae music?", thread))
+        {
+            Console.Write(update.Text);
+        }
+
+        Console.WriteLine("\n\n💬 Question 2 (builds on previous context):");
+        await foreach (var update in agent.RunStreamingAsync(
+            "Tell me more about his Rastafarian beliefs and how they influenced his music.", thread))
+        {
+            Console.Write(update.Text);
+        }
+
+        Console.WriteLine("\n\n✅ Complete!");
+    }
+}
 ```
 
-The second response will build on the first because we use the same `thread`.
+### How Context Works
+
+The second question references "his" without specifying who - the agent remembers we're discussing Bob Marley from the previous exchange because we use the same `thread`.
 
 ### Multiple Independent Conversations
 
 ```csharp
-AgentThread thread1 = agent.GetNewThread();
-AgentThread thread2 = agent.GetNewThread();
+AgentThread reggaeThread = agent.GetNewThread();
+AgentThread danceHallThread = agent.GetNewThread();
 
-// Separate conversations
-Console.WriteLine(await agent.RunAsync("Tell me a joke about a pirate.", thread1));
-Console.WriteLine(await agent.RunAsync("Tell me a joke about a robot.", thread2));
+// Two separate conversations with independent context
+await agent.RunAsync("Tell me about ska music origins.", reggaeThread);
+await agent.RunAsync("Explain the rise of dancehall in the 1980s.", danceHallThread);
+
+// Each thread maintains its own conversation history
+await agent.RunAsync("Who were the key artists?", reggaeThread); // Refers to ska
+await agent.RunAsync("Who were the key artists?", danceHallThread); // Refers to dancehall
 ```
 
 ---
@@ -224,31 +366,68 @@ Console.WriteLine(await agent.RunAsync("Tell me a joke about a robot.", thread2)
 
 **Goal**: Give the agent custom tools/functions to call.
 
-### Steps
+### Complete Code
 
 ```csharp
+using Microsoft.Extensions.AI;
+using Microsoft.Agents.AI;
+using AgentFrameworkLabs.Shared;
 using System.ComponentModel;
 
-// Define a custom function
-[Description("Get the weather for a given location.")]
-static string GetWeather(
-    [Description("The location to get the weather for.")] string location)
+internal class Program
 {
-    // In production, call a real weather API
-    return $"The weather in {location} is cloudy with a high of 15°C.";
+    [Description("Get information about a Jamaican parish including its capital and key facts.")]
+    static string GetParishInfo(
+        [Description("The name of the Jamaican parish")] string parishName)
+    {
+        // Simulated parish database - in production, query a real database
+        var parishes = new Dictionary<string, string>
+        {
+            ["Kingston"] = "Capital: Kingston (also capital of Jamaica). Jamaica's largest city and cultural hub.",
+            ["St. Andrew"] = "Capital: Half Way Tree. Part of the Kingston Metropolitan Area.",
+            ["Portland"] = "Capital: Port Antonio. Known for its lush vegetation and Blue Lagoon.",
+            ["St. Thomas"] = "Capital: Morant Bay. Site of the 1865 Morant Bay Rebellion.",
+            ["Westmoreland"] = "Capital: Savanna-la-Mar. Known for its beaches and as birthplace of many reggae artists."
+        };
+
+        return parishes.TryGetValue(parishName, out var info)
+            ? info
+            : $"Parish '{parishName}' not found. Available parishes: {string.Join(", ", parishes.Keys)}";
+    }
+
+    private static async Task Main(string[] args)
+    {
+        var chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
+
+        // Create agent with function tool
+        AIAgent agent = chatClient.CreateAIAgent(
+            instructions: "You are an expert on Jamaican geography and history. Use available tools when needed.",
+            name: "GeographyExpert",
+            tools: new[] { AIFunctionFactory.Create(GetParishInfo) }
+        );
+
+        string userPrompt = "Tell me about the parish where the Morant Bay Rebellion occurred.";
+        Console.WriteLine($"📚 Question: {userPrompt}\n");
+
+        await foreach (var update in agent.RunStreamingAsync(userPrompt))
+        {
+            Console.Write(update.Text);
+        }
+
+        Console.WriteLine("\n\n✅ Complete!");
+    }
 }
-
-// Create agent with function tool
-AIAgent agent = chatClient.CreateAIAgent(
-    instructions: "You are a helpful assistant.",
-    tools: new[] { AIFunctionFactory.Create(GetWeather) }
-);
-
-// Agent will automatically use the function when needed
-Console.WriteLine(await agent.RunAsync("What is the weather like in Amsterdam?"));
 ```
 
-**Works with both OpenAI and Ollama** (Ollama's function calling support varies by model - `llama3.3:70b` supports it well).
+### How Function Calling Works
+
+1. User asks about the Morant Bay Rebellion location
+2. Agent recognizes it needs parish information
+3. Agent automatically calls `GetParishInfo("St. Thomas")`
+4. Agent incorporates the function result into its response
+
+**Works with both OpenAI and Ollama** (Ollama's function calling support varies by model - `llama3.3:70b` and `deepseek-r1:70b` support it well).
 
 ---
 
