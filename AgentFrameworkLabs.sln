@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab02_ImagesWAgent", "Lab02
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab03_MultiTurnAgent", "Lab03_MultiTurnAgent\Lab03_MultiTurnAgent.csproj", "{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab04_ToolCallAgent", "Lab04_ToolCallAgent\Lab04_ToolCallAgent.csproj", "{118AF545-8389-4411-B9D4-99A1995B70A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|x64.Build.0 = Release|Any CPU
 		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|x86.ActiveCfg = Release|Any CPU
 		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|x86.Build.0 = Release|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Debug|x64.Build.0 = Debug|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Debug|x86.Build.0 = Debug|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|x64.ActiveCfg = Release|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|x64.Build.0 = Release|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|x86.ActiveCfg = Release|Any CPU
+		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

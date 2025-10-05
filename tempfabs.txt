@@ -4,3 +4,6 @@ dotnet sln add Lab02_ImagesWAgent/Lab02_ImagesWAgent.csproj
 
 dotnet new console -n Lab03_MultiTurnAgent
 dotnet sln add Lab03_MultiTurnAgent/Lab03_MultiTurnAgent.csproj
+
+dotnet new console -n Lab04_ToolCallAgent
+dotnet sln add Lab04_ToolCallAgent/Lab04_ToolCallAgent.csproj

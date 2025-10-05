@@ -441,12 +441,9 @@ internal class Program
         // Create agent with function tool
         AIAgent agent = new ChatClientAgent(
             chatClient,
-            new ChatClientAgentOptions
-            {
-                Instructions = "You are an expert on Jamaican geography and history. Use available tools when needed.",
-                Name = "GeographyExpert",
-                Tools = new[] { AIFunctionFactory.Create(GetParishInfo) }
-            });
+            instructions: "You are an expert on Jamaican geography and history. Use available tools when needed.",
+            name: "GeographyExpert",
+            tools: new[] { AIFunctionFactory.Create(GetParishInfo) });
 
         string userPrompt = "Tell me about the parish where the Morant Bay Rebellion occurred.";
         Console.WriteLine($"📚 Question: {userPrompt}\n");
@@ -469,6 +466,24 @@ internal class Program
 4. Agent incorporates the function result into its response
 
 **Works with both OpenAI and Ollama** (Ollama's function calling support varies by model - `llama3.3:70b` and `deepseek-r1:70b` support it well).
+
+### Collaboration Note
+
+GitHub Copilot spotted that the earlier README sample still used `new ChatClientAgentOptions { ... }`, which causes a runtime failure with `IChatClient`. Copilot suggested switching to the direct `new ChatClientAgent(chatClient, instructions: ..., name: ..., tools: ...)` constructor—the same pattern already in `Lab04_FunctionTools/Program.cs`. The working code above reflects that adjustment so the lab runs cleanly with either provider.
+
+```csharp
+// Before (incorrect)
+new ChatClientAgent(chatClient, new ChatClientAgentOptions {
+    Instructions = "...",
+    Tools = new[] { tool }
+});
+
+// After (fixed with Copilot's suggestion)
+new ChatClientAgent(
+    chatClient,
+    instructions: "...",
+    tools: new[] { tool });
+```
 
 ---
 
