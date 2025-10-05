@@ -83,8 +83,8 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
 
 4. **Create Shared Helper Class** at `Shared/AgentConfig.cs`:
    ```csharp
-   using Microsoft.Extensions.Configuration;
    using Microsoft.Extensions.AI;
+   using Microsoft.Extensions.Configuration;
    using Microsoft.Agents.AI;
    using OpenAI;
    using OpenAI.Chat;
@@ -110,31 +110,50 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
        }
 
        /// <summary>
-       /// Gets the configured AI chat client based on Provider setting in appsettings.json.
-       /// Currently only supports OpenAI.
+       /// Gets the configured AI chat client based on settings in appsettings.json.
        /// </summary>
-       public static ChatClient GetChatClient()
+       public static IChatClient GetChatClient()
        {
            var provider = Configuration["AI:Provider"] ?? "OpenAI";
 
            return provider.ToLowerInvariant() switch
            {
                "openai" => GetOpenAIChatClient(),
+               "ollama" => GetOllamaChatClient(),
                _ => throw new InvalidOperationException(
-                   $"Unknown provider: {provider}. Currently only 'OpenAI' is supported.")
+                   $"Unknown provider: {provider}. Supported providers: OpenAI, Ollama.")
            };
        }
 
        /// <summary>
        /// Gets OpenAI chat client.
        /// </summary>
-       public static ChatClient GetOpenAIChatClient()
+       public static IChatClient GetOpenAIChatClient()
        {
            var apiKey = Configuration["OpenAI:ApiKey"]
                ?? throw new InvalidOperationException("OpenAI:ApiKey not found in appsettings.json");
            var model = Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
 
-           return new OpenAIClient(apiKey).GetChatClient(model);
+           ChatClient chatClient = new OpenAIClient(apiKey).GetChatClient(model);
+           return chatClient.AsIChatClient();
+       }
+
+       /// <summary>
+       /// Gets Ollama chat client.
+       /// </summary>
+       public static IChatClient GetOllamaChatClient()
+       {
+           var endpoint = Configuration["Ollama:Endpoint"]
+               ?? throw new InvalidOperationException("Ollama:Endpoint not found in appsettings.json");
+           var model = Configuration["Ollama:Model"]
+               ?? throw new InvalidOperationException("Ollama:Model not found in appsettings.json");
+
+           if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
+           {
+               throw new InvalidOperationException($"Invalid Ollama endpoint URI: {endpoint}");
+           }
+
+           return new OllamaChatClient(uri, model);
        }
 
        /// <summary>
@@ -143,8 +162,14 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
        public static string GetProviderName()
        {
            var provider = Configuration["AI:Provider"] ?? "OpenAI";
-           var model = Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-           return $"{provider} ({model})";
+
+           return provider.ToLowerInvariant() switch
+           {
+               "ollama" => FormatProvider("Ollama", Configuration["Ollama:Model"] ?? "(model not set)"),
+               _ => FormatProvider("OpenAI", Configuration["OpenAI:Model"] ?? "gpt-4o-mini")
+           };
+
+           static string FormatProvider(string name, string model) => $"{name} ({model})";
        }
    }
    ```
@@ -154,6 +179,7 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
    <ItemGroup>
      <PackageReference Include="Microsoft.Extensions.AI" Version="9.9.1" />
      <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="9.9.0-preview.1.25458.4" />
+     <PackageReference Include="Microsoft.Extensions.AI.Ollama" Version="9.7.0-preview.1.25356.2" />
      <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251002.1" />
      <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.251002.1" />
      <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
@@ -170,28 +196,26 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
 
 ## Lab 1: Create and Run a Simple Agent
 
-**Goal**: Build a basic AI agent that uses OpenAI (controlled by config).
+**Goal**: Build a basic AI agent that can switch between OpenAI and Ollama via configuration.
 
 ### Complete Code
 
 ```csharp
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using OpenAI;
-using OpenAI.Chat;
 
 internal class Program
 {
     private static async Task Main(string[] args)
     {
         // Automatically uses provider from appsettings.json (AI:Provider)
-        // Switch between "OpenAI" and "Ollama" by changing that setting
-        ChatClient chatClient = AgentConfig.GetChatClient();
+        IChatClient chatClient = AgentConfig.GetChatClient();
 
         Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
         // Create AI Agent with Jamaican history expertise
-        AIAgent agent = chatClient.CreateAIAgent(
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
             instructions: "You are a PhD historian specializing in Jamaican history and Caribbean studies. " +
                          "Provide detailed, accurate information with cultural context and sensitivity.",
             name: "Professor JahMekYanBwoy");
@@ -215,15 +239,16 @@ internal class Program
 ### How It Works
 
 - **Shared configuration**: Uses `AgentConfig.GetChatClient()` which reads from shared `appsettings.json`
-- **Returns ChatClient**: Note the return type is `ChatClient` from OpenAI SDK (not `IChatClient`)
+- **Returns IChatClient**: The helper returns `IChatClient`, enabling the same code to run against OpenAI or Ollama
+- **ChatClientAgent**: Agents are created with `ChatClientAgent` so provider-specific clients can be swapped transparently
 - **Streaming output**: Uses `RunStreamingAsync()` for real-time token-by-token display
 - **Themed prompts**: Agent is configured as a Jamaican history expert
 
 ### Key Differences from Original Tutorial
 
-- Uses `ChatClient` (OpenAI SDK) instead of `IChatClient` (Microsoft.Extensions.AI)
-- Requires explicit using statements: `using OpenAI;` and `using OpenAI.Chat;`
-- Currently **OpenAI only** - Ollama support will be added in future labs
+- Works with both OpenAI and Ollama by toggling `AI:Provider`
+- Requires the `Microsoft.Extensions.AI.Ollama` package (preview) for local model support
+- Uses `ChatClientAgent` directly instead of the older `CreateAIAgent` extension methods
 
 ### Try Different Prompts
 
@@ -258,11 +283,12 @@ internal class Program
 {
     private static async Task Main(string[] args)
     {
-        var chatClient = AgentConfig.GetChatClient();
+        IChatClient chatClient = AgentConfig.GetChatClient();
         Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
         // Create vision-capable agent
-        AIAgent agent = chatClient.CreateAIAgent(
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
             name: "CaribbeanArtAnalyst",
             instructions: "You are an art historian specializing in Caribbean and Jamaican visual culture. " +
                          "Analyze images with attention to cultural, historical, and artistic context.");
@@ -318,10 +344,11 @@ internal class Program
 {
     private static async Task Main(string[] args)
     {
-        var chatClient = AgentConfig.GetChatClient();
+        IChatClient chatClient = AgentConfig.GetChatClient();
         Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-        AIAgent agent = chatClient.CreateAIAgent(
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
             instructions: "You are a knowledgeable guide on Jamaican music history and culture.",
             name: "MusicHistorian");
 
@@ -404,15 +431,18 @@ internal class Program
 
     private static async Task Main(string[] args)
     {
-        var chatClient = AgentConfig.GetChatClient();
+        IChatClient chatClient = AgentConfig.GetChatClient();
         Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
         // Create agent with function tool
-        AIAgent agent = chatClient.CreateAIAgent(
-            instructions: "You are an expert on Jamaican geography and history. Use available tools when needed.",
-            name: "GeographyExpert",
-            tools: new[] { AIFunctionFactory.Create(GetParishInfo) }
-        );
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
+            new ChatClientAgentOptions
+            {
+                Instructions = "You are an expert on Jamaican geography and history. Use available tools when needed.",
+                Name = "GeographyExpert",
+                Tools = new[] { AIFunctionFactory.Create(GetParishInfo) }
+            });
 
         string userPrompt = "Tell me about the parish where the Morant Bay Rebellion occurred.";
         Console.WriteLine($"📚 Question: {userPrompt}\n");
@@ -450,10 +480,14 @@ AIFunction weatherFunc = AIFunctionFactory.Create(GetWeather);
 AIFunction approvalRequiredWeatherFunc = new ApprovalRequiredAIFunction(weatherFunc);
 
 // Create agent with approval-required tool
-AIAgent agent = chatClient.CreateAIAgent(
-    instructions: "You are a helpful assistant.",
-    tools: new[] { approvalRequiredWeatherFunc }
-);
+IChatClient chatClient = AgentConfig.GetChatClient();
+AIAgent agent = new ChatClientAgent(
+    chatClient,
+    new ChatClientAgentOptions
+    {
+        Instructions = "You are a helpful assistant.",
+        Tools = new[] { approvalRequiredWeatherFunc }
+    });
 
 AgentThread thread = agent.GetNewThread();
 
@@ -512,11 +546,15 @@ ChatOptions chatOptions = new ChatOptions
 };
 
 // Create agent with structured output
-AIAgent agent = chatClient.CreateAIAgent(new ChatClientAgentOptions {
-    Name = "HelpfulAssistant",
-    Instructions = "You are a helpful assistant.",
-    ChatOptions = chatOptions
-});
+IChatClient chatClient = AgentConfig.GetChatClient();
+AIAgent agent = new ChatClientAgent(
+    chatClient,
+    new ChatClientAgentOptions
+    {
+        Name = "HelpfulAssistant",
+        Instructions = "You are a helpful assistant.",
+        ChatOptions = chatOptions
+    });
 
 // Query and deserialize
 var prompt = "Please provide information about John Smith, who is a 35-year-old software engineer.";
@@ -537,19 +575,20 @@ Console.WriteLine($"Name: {person.Name}, Age: {person.Age}, Occupation: {person.
 ### Steps
 
 ```csharp
+IChatClient chatClient = AgentConfig.GetChatClient();
+
 // Create specialist weather agent
-AIAgent weatherAgent = chatClient.CreateAIAgent(
+AIAgent weatherAgent = new ChatClientAgent(
+    chatClient,
     instructions: "You answer questions about the weather.",
     name: "WeatherAgent",
-    description: "An agent that provides weather information.",
-    tools: new[] { AIFunctionFactory.Create(GetWeather) }
-);
+    tools: new[] { AIFunctionFactory.Create(GetWeather) });
 
 // Create main agent that uses weather agent as a tool
-AIAgent mainAgent = chatClient.CreateAIAgent(
+AIAgent mainAgent = new ChatClientAgent(
+    chatClient,
     instructions: "You are a helpful assistant who responds in French.",
-    tools: new[] { weatherAgent.AsAIFunction() }
-);
+    tools: new[] { weatherAgent.AsAIFunction() });
 
 // Query main agent
 Console.WriteLine(await mainAgent.RunAsync("What is the weather like in Amsterdam?"));
@@ -580,8 +619,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 
+IChatClient chatClient = AgentConfig.GetChatClient();
+
 // Create agent to expose
-AIAgent agent = chatClient.CreateAIAgent(
+AIAgent agent = new ChatClientAgent(
+    chatClient,
     instructions: "You are good at telling jokes.",
     name: "Joker");
 
@@ -628,8 +670,11 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .AddConsoleExporter()
     .Build();
 
+IChatClient chatClient = AgentConfig.GetChatClient();
+
 // Create base agent
-AIAgent baseAgent = chatClient.CreateAIAgent(
+AIAgent baseAgent = new ChatClientAgent(
+    chatClient,
     instructions: "You are good at telling jokes.",
     name: "Joker");
 
@@ -732,8 +777,11 @@ AIAgent agent = new ChatClientAgent(instrumentedChatClient,
 ### Steps
 
 ```csharp
+IChatClient chatClient = AgentConfig.GetChatClient();
+
 // Create agent and thread
-AIAgent agent = chatClient.CreateAIAgent(
+AIAgent agent = new ChatClientAgent(
+    chatClient,
     instructions: "You are a helpful assistant.",
     name: "Assistant");
 AgentThread thread = agent.GetNewThread();

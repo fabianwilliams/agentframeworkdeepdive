@@ -36,7 +36,7 @@ AgentFrameworkLabs/
 
 1. **No Namespace in AgentConfig.cs**: The shared class has no namespace to avoid import issues across projects.
 
-2. **ChatClient vs IChatClient**: Uses OpenAI SDK's `ChatClient` (concrete type) instead of `Microsoft.Extensions.AI.IChatClient` (abstraction) due to compatibility with current Agent Framework preview packages.
+2. **IChatClient Abstraction**: `AgentConfig` now returns `IChatClient`, wrapping OpenAI's `ChatClient` via `.AsIChatClient()` and constructing `OllamaChatClient` instances so labs can switch providers without touching project code.
 
 3. **File Linking**: Each lab `.csproj` includes:
    ```xml
@@ -84,16 +84,12 @@ cp appsettings.template.json appsettings.json
 ```
 
 ### Provider Switching
-Currently **OpenAI only**. The `AI:Provider` setting exists for future Ollama support but is not yet implemented in `AgentConfig.cs`.
+Set `AI:Provider` in `appsettings.json` to either `"OpenAI"` or `"Ollama"`. The shared helper returns the right client for every lab.
 
-To use a different OpenAI model:
-```json
-{
-  "OpenAI": {
-    "Model": "gpt-4o"  // or "gpt-4o-mini", "gpt-4-turbo", etc.
-  }
-}
-```
+- `OpenAI`: ensure `OpenAI:ApiKey` and `OpenAI:Model` are populated (defaults to `gpt-4o-mini`).
+- `Ollama`: ensure `ollama serve` is running locally, set `Ollama:Endpoint` (default `http://localhost:11434`) and `Ollama:Model` (e.g., `gpt-oss:120b`, `llama3.3:70b`).
+
+To switch OpenAI models, just update the `OpenAI:Model` value.
 
 ## Required NuGet Packages
 
@@ -102,6 +98,7 @@ Each lab project requires these packages:
 ```xml
 <PackageReference Include="Microsoft.Extensions.AI" Version="9.9.1" />
 <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="9.9.0-preview.1.25458.4" />
+<PackageReference Include="Microsoft.Extensions.AI.Ollama" Version="9.7.0-preview.1.25356.2" />
 <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251002.1" />
 <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.251002.1" />
 <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
@@ -123,20 +120,19 @@ Each lab follows this pattern:
 ```csharp
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using OpenAI;
-using OpenAI.Chat;
 
 internal class Program
 {
     private static async Task Main(string[] args)
     {
         // Get chat client from shared config
-        ChatClient chatClient = AgentConfig.GetChatClient();
+        IChatClient chatClient = AgentConfig.GetChatClient();
 
         Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
         // Create agent with themed instructions
-        AIAgent agent = chatClient.CreateAIAgent(
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
             instructions: "You are a [role related to Jamaican/Caribbean culture]...",
             name: "AgentName");
 
