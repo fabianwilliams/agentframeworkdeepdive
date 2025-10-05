@@ -55,14 +55,19 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
 
 3. **Create Shared Configuration** at solution root:
 
-   Create `appsettings.json` in the solution root directory (add to .gitignore!):
+   Copy the template to create your config file:
+   ```bash
+   cp appsettings.template.json appsettings.json
+   ```
+
+   Then edit `appsettings.json` and add your OpenAI API key:
    ```json
    {
      "AI": {
        "Provider": "OpenAI"
      },
      "OpenAI": {
-       "ApiKey": "sk-...",
+       "ApiKey": "sk-proj-YOUR-ACTUAL-KEY-HERE",
        "Model": "gpt-4o-mini"
      },
      "Ollama": {
@@ -71,6 +76,8 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
      }
    }
    ```
+
+   **Important**: `appsettings.json` is in `.gitignore` to protect your API key. Never commit it to git!
 
    **To switch providers**: Just change `"AI:Provider"` to either `"OpenAI"` or `"Ollama"` - all labs will automatically use the selected provider!
 
