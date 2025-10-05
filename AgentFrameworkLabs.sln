@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab01_SimpleAgent", "Lab01_
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab02_ImagesWAgent", "Lab02_ImagesWAgent\Lab02_ImagesWAgent.csproj", "{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab03_MultiTurnAgent", "Lab03_MultiTurnAgent\Lab03_MultiTurnAgent.csproj", "{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,18 @@ Global
 		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|x64.Build.0 = Release|Any CPU
 		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|x86.ActiveCfg = Release|Any CPU
 		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|x86.Build.0 = Release|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Debug|x64.Build.0 = Debug|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Debug|x86.Build.0 = Debug|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|x64.ActiveCfg = Release|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|x64.Build.0 = Release|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|x86.ActiveCfg = Release|Any CPU
+		{4E22B539-A740-4E82-BCB9-86EBB53EA3CF}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
