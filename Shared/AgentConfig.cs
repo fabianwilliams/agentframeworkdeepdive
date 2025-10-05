@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Agents.AI;
 using OpenAI;
 using OpenAI.Chat;
@@ -25,31 +25,50 @@ public static class AgentConfig
     }
 
     /// <summary>
-    /// Gets the configured AI chat client based on Provider setting in appsettings.json.
-    /// Currently only supports OpenAI.
+    /// Gets the configured AI chat client based on settings in appsettings.json.
     /// </summary>
-    public static ChatClient GetChatClient()
+    public static IChatClient GetChatClient()
     {
         var provider = Configuration["AI:Provider"] ?? "OpenAI";
 
         return provider.ToLowerInvariant() switch
         {
             "openai" => GetOpenAIChatClient(),
+            "ollama" => GetOllamaChatClient(),
             _ => throw new InvalidOperationException(
-                $"Unknown provider: {provider}. Currently only 'OpenAI' is supported.")
+                $"Unknown provider: {provider}. Supported providers: OpenAI, Ollama.")
         };
     }
 
     /// <summary>
     /// Gets OpenAI chat client.
     /// </summary>
-    public static ChatClient GetOpenAIChatClient()
+    public static IChatClient GetOpenAIChatClient()
     {
         var apiKey = Configuration["OpenAI:ApiKey"]
             ?? throw new InvalidOperationException("OpenAI:ApiKey not found in appsettings.json");
         var model = Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
 
-        return new OpenAIClient(apiKey).GetChatClient(model);
+        ChatClient chatClient = new OpenAIClient(apiKey).GetChatClient(model);
+        return chatClient.AsIChatClient();
+    }
+
+    /// <summary>
+    /// Gets Ollama chat client.
+    /// </summary>
+    public static IChatClient GetOllamaChatClient()
+    {
+        var endpoint = Configuration["Ollama:Endpoint"]
+            ?? throw new InvalidOperationException("Ollama:Endpoint not found in appsettings.json");
+        var model = Configuration["Ollama:Model"]
+            ?? throw new InvalidOperationException("Ollama:Model not found in appsettings.json");
+
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException($"Invalid Ollama endpoint URI: {endpoint}");
+        }
+
+        return new OllamaChatClient(uri, model);
     }
 
     /// <summary>
@@ -58,7 +77,13 @@ public static class AgentConfig
     public static string GetProviderName()
     {
         var provider = Configuration["AI:Provider"] ?? "OpenAI";
-        var model = Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-        return $"{provider} ({model})";
+
+        return provider.ToLowerInvariant() switch
+        {
+            "ollama" => FormatProvider("Ollama", Configuration["Ollama:Model"] ?? "(model not set)"),
+            _ => FormatProvider("OpenAI", Configuration["OpenAI:Model"] ?? "gpt-4o-mini")
+        };
+
+        static string FormatProvider(string name, string model) => $"{name} ({model})";
     }
 }
