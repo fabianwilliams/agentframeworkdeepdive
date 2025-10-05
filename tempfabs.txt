@@ -1,0 +1,2 @@
+dotnet new console -n Lab02_ImagesWAgent
+dotnet sln add Lab02_ImagesWAgent/Lab02_ImagesWAgent.csproj

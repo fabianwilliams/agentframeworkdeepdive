@@ -35,6 +35,7 @@ public static class AgentConfig
         {
             "openai" => GetOpenAIChatClient(),
             "ollama" => GetOllamaChatClient(),
+            "ollamaimage" => GetOllamaChatClientImage(),
             _ => throw new InvalidOperationException(
                 $"Unknown provider: {provider}. Supported providers: OpenAI, Ollama.")
         };
@@ -61,6 +62,24 @@ public static class AgentConfig
         var endpoint = Configuration["Ollama:Endpoint"]
             ?? throw new InvalidOperationException("Ollama:Endpoint not found in appsettings.json");
         var model = Configuration["Ollama:Model"]
+            ?? throw new InvalidOperationException("Ollama:Model not found in appsettings.json");
+
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException($"Invalid Ollama endpoint URI: {endpoint}");
+        }
+
+        return new OllamaChatClient(uri, model);
+    }
+
+        /// <summary>
+    /// Gets Ollama chat client.
+    /// </summary>
+    public static IChatClient GetOllamaChatClientImage()
+    {
+        var endpoint = Configuration["OllamaImage:Endpoint"]
+            ?? throw new InvalidOperationException("Ollama:Endpoint not found in appsettings.json");
+        var model = Configuration["OllamaImage:Model"]
             ?? throw new InvalidOperationException("Ollama:Model not found in appsettings.json");
 
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))

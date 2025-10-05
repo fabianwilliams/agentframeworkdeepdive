@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab01_SimpleAgent", "Lab01_SimpleAgent\Lab01_SimpleAgent.csproj", "{A85B15E0-626E-4A53-92A8-29B0128A4A25}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab02_ImagesWAgent", "Lab02_ImagesWAgent\Lab02_ImagesWAgent.csproj", "{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,18 @@ Global
 		{A85B15E0-626E-4A53-92A8-29B0128A4A25}.Release|x64.Build.0 = Release|Any CPU
 		{A85B15E0-626E-4A53-92A8-29B0128A4A25}.Release|x86.ActiveCfg = Release|Any CPU
 		{A85B15E0-626E-4A53-92A8-29B0128A4A25}.Release|x86.Build.0 = Release|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Debug|x64.Build.0 = Debug|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Debug|x86.Build.0 = Debug|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|x64.ActiveCfg = Release|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|x64.Build.0 = Release|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|x86.ActiveCfg = Release|Any CPU
+		{779BA4E0-4F48-404B-B6CA-49C350DBA5FD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

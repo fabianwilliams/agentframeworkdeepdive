@@ -201,6 +201,7 @@ dotnet add package Microsoft.Agents.AI.OpenAI --prerelease
 ### Complete Code
 
 ```csharp
+using System;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
@@ -275,9 +276,9 @@ internal class Program
 ### Complete Code
 
 ```csharp
-using Microsoft.Extensions.AI;
+using System;
 using Microsoft.Agents.AI;
-using AgentFrameworkLabs.Shared;
+using Microsoft.Extensions.AI;
 
 internal class Program
 {
@@ -291,21 +292,26 @@ internal class Program
             chatClient,
             name: "CaribbeanArtAnalyst",
             instructions: "You are an art historian specializing in Caribbean and Jamaican visual culture. " +
-                         "Analyze images with attention to cultural, historical, and artistic context.");
+                         "Analyze imagery with attention to historical and cultural context.");
 
         // Create multimodal message with image
-        var message = new ChatMessage(
+        ChatMessage message = new ChatMessage(
             ChatRole.User,
-            new ChatMessageContent[]
+            new AIContent[]
             {
-                new TextContent("Analyze this image and describe what you see. " +
-                              "If it depicts Caribbean or Jamaican culture, provide historical context."),
-                new UriContent("https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Marcus_Garvey_1924-08-05.jpg/440px-Marcus_Garvey_1924-08-05.jpg", "image/jpeg")
+                new TextContent(
+                    "Analyze this image and describe what you see. " +
+                    "If it reflects Caribbean or Jamaican culture, explain the historical context."),
+                new UriContent(
+                    new Uri("https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Marcus_Garvey_1924-08-05.jpg/440px-Marcus_Garvey_1924-08-05.jpg"),
+                    "image/jpeg")
             });
 
         Console.WriteLine("🖼️ Analyzing image...\n");
-        var response = await agent.RunAsync(message);
+        var response = await agent.RunAsync(new[] { message });
         Console.WriteLine(response.Text);
+
+        Console.WriteLine("\n✅ Complete!");
     }
 }
 ```
@@ -336,9 +342,8 @@ internal class Program
 ### Complete Code
 
 ```csharp
-using Microsoft.Extensions.AI;
 using Microsoft.Agents.AI;
-using AgentFrameworkLabs.Shared;
+using Microsoft.Extensions.AI;
 
 internal class Program
 {
@@ -403,9 +408,8 @@ await agent.RunAsync("Who were the key artists?", danceHallThread); // Refers to
 ### Complete Code
 
 ```csharp
-using Microsoft.Extensions.AI;
 using Microsoft.Agents.AI;
-using AgentFrameworkLabs.Shared;
+using Microsoft.Extensions.AI;
 using System.ComponentModel;
 
 internal class Program
