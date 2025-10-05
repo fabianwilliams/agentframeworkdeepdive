@@ -543,17 +543,26 @@ internal class Program
             FunctionApprovalRequestContent requestContent = approvalRequests[0];
             Console.WriteLine($"Approval required for: '{requestContent.FunctionCall.Name}'");
 
+            Console.Write("Approve tool execution? (y/n): ");
+            string userInput = Console.ReadLine()?.Trim() ?? string.Empty;
+            bool approved = userInput.StartsWith("y", StringComparison.OrdinalIgnoreCase);
+
             ChatMessage approvalMessage = new ChatMessage(ChatRole.User, new[]
             {
-                requestContent.CreateResponse(approve: true)
+                requestContent.CreateResponse(approve: approved)
             });
 
             AgentRunResponse finalResponse = await agent.RunAsync(approvalMessage, thread);
-            Console.WriteLine(finalResponse.Text);
+
+            Console.WriteLine(approved
+                ? $"\n✅ Approved. Result:\n{finalResponse.Text}"
+                : "\n🚫 Tool call denied. Agent continued without executing the function.");
         }
     }
 }
 ```
+
+**Warnings**: `Console.ReadLine()` returns a nullable string. The sample trims with `?? string.Empty` to avoid nullable flow warnings. If analyzers still flag `CS8602`, keep the guard as shown or suppress it explicitly in your project.
 
 ---
 
