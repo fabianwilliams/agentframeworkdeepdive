@@ -491,47 +491,67 @@ new ChatClientAgent(
 
 **Goal**: Require user approval before executing sensitive functions.
 
-### Steps
+### Complete Code
 
 ```csharp
-// Wrap function with approval requirement
-AIFunction weatherFunc = AIFunctionFactory.Create(GetWeather);
-AIFunction approvalRequiredWeatherFunc = new ApprovalRequiredAIFunction(weatherFunc);
+using System;
+using System.ComponentModel;
+using System.Linq;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 
-// Create agent with approval-required tool
-IChatClient chatClient = AgentConfig.GetChatClient();
-AIAgent agent = new ChatClientAgent(
-    chatClient,
-    new ChatClientAgentOptions
-    {
-        Instructions = "You are a helpful assistant.",
-        Tools = new[] { approvalRequiredWeatherFunc }
-    });
-
-AgentThread thread = agent.GetNewThread();
-
-// First call - will request approval
-AgentRunResponse response = await agent.RunAsync("What's the weather like in Amsterdam?", thread);
-
-// Detect approval requests
-var approvalRequests = response.Messages
-    .SelectMany(msg => msg.Contents)
-    .OfType<FunctionApprovalRequestContent>()
-    .ToList();
-
-if (approvalRequests.Count > 0)
+internal class Program
 {
-    var requestContent = approvalRequests.First();
-    Console.WriteLine($"Approval required for: '{requestContent.FunctionCall.Name}'");
+    [Description("Provide a quick weather summary for the given city.")]
+    private static string GetWeather(
+        [Description("City to check")] string city)
+    {
+        return city.ToLowerInvariant() switch
+        {
+            "amsterdam" => "Expect light rain with cool breezes off the IJ.",
+            "kingston" => "Tropical sunshine with a chance of afternoon showers.",
+            _ => $"Weather data for {city} is unavailable—assume warm Caribbean vibes!"
+        };
+    }
 
-    // Grant approval
-    var approvalMessage = new ChatMessage(ChatRole.User, new[] {
-        requestContent.CreateResponse(true)
-    });
+    private static async Task Main(string[] args)
+    {
+        IChatClient chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-    // Continue with approval
-    var finalResponse = await agent.RunAsync(approvalMessage, thread);
-    Console.WriteLine(finalResponse.Text);
+        AIFunction weatherFunc = AIFunctionFactory.Create(GetWeather);
+        AIFunction approvalRequiredWeatherFunc = new ApprovalRequiredAIFunction(weatherFunc);
+
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
+            instructions: "You are a helpful assistant.",
+            tools: new[] { approvalRequiredWeatherFunc });
+
+        AgentThread thread = agent.GetNewThread();
+
+        AgentRunResponse response = await agent.RunAsync(
+            "What's the weather like in Amsterdam?",
+            thread);
+
+        var approvalRequests = response.Messages
+            .SelectMany(message => message.Contents)
+            .OfType<FunctionApprovalRequestContent>()
+            .ToList();
+
+        if (approvalRequests.Count > 0)
+        {
+            FunctionApprovalRequestContent requestContent = approvalRequests[0];
+            Console.WriteLine($"Approval required for: '{requestContent.FunctionCall.Name}'");
+
+            ChatMessage approvalMessage = new ChatMessage(ChatRole.User, new[]
+            {
+                requestContent.CreateResponse(approve: true)
+            });
+
+            AgentRunResponse finalResponse = await agent.RunAsync(approvalMessage, thread);
+            Console.WriteLine(finalResponse.Text);
+        }
+    }
 }
 ```
 
@@ -541,46 +561,60 @@ if (approvalRequests.Count > 0)
 
 **Goal**: Get JSON output following a specific schema.
 
-### Steps
+### Complete Code
 
 ```csharp
-// Define output schema
-public class PersonInfo
+using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+internal class Program
 {
-    [JsonPropertyName("name")] public string? Name { get; set; }
-    [JsonPropertyName("age")] public int? Age { get; set; }
-    [JsonPropertyName("occupation")] public string? Occupation { get; set; }
+    private static async Task Main(string[] args)
+    {
+        IChatClient chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
+
+        JsonElement schema = AIJsonUtilities.CreateJsonSchema(typeof(PersonInfo));
+
+        ChatOptions chatOptions = new ChatOptions
+        {
+            ResponseFormat = ChatResponseFormatJson.ForJsonSchema(
+                schema: schema,
+                schemaName: "PersonInfo",
+                schemaDescription: "Information about a person including their name, age, and occupation")
+        };
+
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
+            new ChatClientAgentOptions
+            {
+                Name = "HelpfulAssistant",
+                Instructions = "You are a helpful assistant.",
+                ChatOptions = chatOptions
+            });
+
+        string prompt = "Please provide information about John Smith, who is a 35-year-old software engineer.";
+        AgentRunResponse response = await agent.RunAsync(prompt);
+
+        PersonInfo person = response.Deserialize<PersonInfo>(JsonSerializerOptions.Web);
+        Console.WriteLine($"Name: {person.Name}, Age: {person.Age}, Occupation: {person.Occupation}");
+    }
 }
 
-// Create JSON schema
-JsonElement schema = AIJsonUtilities.CreateJsonSchema(typeof(PersonInfo));
-
-// Configure ChatOptions for structured output
-ChatOptions chatOptions = new ChatOptions
+internal sealed class PersonInfo
 {
-    ResponseFormat = ChatResponseFormatJson.ForJsonSchema(
-        schema: schema,
-        schemaName: "PersonInfo",
-        schemaDescription: "Information about a person including their name, age, and occupation")
-};
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 
-// Create agent with structured output
-IChatClient chatClient = AgentConfig.GetChatClient();
-AIAgent agent = new ChatClientAgent(
-    chatClient,
-    new ChatClientAgentOptions
-    {
-        Name = "HelpfulAssistant",
-        Instructions = "You are a helpful assistant.",
-        ChatOptions = chatOptions
-    });
+    [JsonPropertyName("age")]
+    public int? Age { get; set; }
 
-// Query and deserialize
-var prompt = "Please provide information about John Smith, who is a 35-year-old software engineer.";
-var response = await agent.RunAsync(prompt);
-
-PersonInfo person = response.Deserialize<PersonInfo>(JsonSerializerOptions.Web);
-Console.WriteLine($"Name: {person.Name}, Age: {person.Age}, Occupation: {person.Occupation}");
+    [JsonPropertyName("occupation")]
+    public string? Occupation { get; set; }
+}
 ```
 
 **Note**: Structured output works best with OpenAI. Ollama support varies by model.
@@ -591,26 +625,48 @@ Console.WriteLine($"Name: {person.Name}, Age: {person.Age}, Occupation: {person.
 
 **Goal**: Compose multiple agents - one agent calls another as a tool.
 
-### Steps
+### Complete Code
 
 ```csharp
-IChatClient chatClient = AgentConfig.GetChatClient();
+using System;
+using System.ComponentModel;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 
-// Create specialist weather agent
-AIAgent weatherAgent = new ChatClientAgent(
-    chatClient,
-    instructions: "You answer questions about the weather.",
-    name: "WeatherAgent",
-    tools: new[] { AIFunctionFactory.Create(GetWeather) });
+internal class Program
+{
+    [Description("Provide a concise weather report for the specified city.")]
+    private static string GetWeather(
+        [Description("City to check")] string city)
+    {
+        return city.ToLowerInvariant() switch
+        {
+            "amsterdam" => "Pluie légère et brise fraîche marquent la journée.",
+            "kingston" => "Chaleur tropicale avec des averses possibles.",
+            _ => $"La météo pour {city} n'est pas disponible, mais l'esprit caribéen reste ensoleillé!"
+        };
+    }
 
-// Create main agent that uses weather agent as a tool
-AIAgent mainAgent = new ChatClientAgent(
-    chatClient,
-    instructions: "You are a helpful assistant who responds in French.",
-    tools: new[] { weatherAgent.AsAIFunction() });
+    private static async Task Main(string[] args)
+    {
+        IChatClient chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-// Query main agent
-Console.WriteLine(await mainAgent.RunAsync("What is the weather like in Amsterdam?"));
+        AIAgent weatherAgent = new ChatClientAgent(
+            chatClient,
+            instructions: "You answer questions about the weather.",
+            name: "WeatherAgent",
+            tools: new[] { AIFunctionFactory.Create(GetWeather) });
+
+        AIAgent mainAgent = new ChatClientAgent(
+            chatClient,
+            instructions: "You are a helpful assistant who responds in French.",
+            tools: new[] { weatherAgent.AsAIFunction() });
+
+        AgentRunResponse response = await mainAgent.RunAsync("What is the weather like in Amsterdam?");
+        Console.WriteLine(response.Text);
+    }
+}
 ```
 
 The main agent will:
@@ -634,32 +690,39 @@ dotnet add package ModelContextProtocol
 ### Steps
 
 ```csharp
-using Microsoft.Extensions.Hosting;
+using System;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.Server;
 
-IChatClient chatClient = AgentConfig.GetChatClient();
-
-// Create agent to expose
-AIAgent agent = new ChatClientAgent(
-    chatClient,
-    instructions: "You are good at telling jokes.",
-    name: "Joker");
-
-// Wrap as MCP tool
-McpServerTool tool = McpServerTool.Create(agent.AsAIFunction());
-
-// Configure MCP server
-var builder = Host.CreateDefaultBuilder();
-builder.ConfigureServices(services =>
+internal class Program
 {
-    services.AddMcpServer()
-        .WithStdioServerTransport()
-        .WithTools(new[] { tool });
-});
+    private static async Task Main(string[] args)
+    {
+        IChatClient chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-using IHost host = builder.Build();
-await host.RunAsync();
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
+            instructions: "You are good at telling Caribbean-themed jokes.",
+            name: "Joker");
+
+        McpServerTool tool = McpServerTool.Create(agent.AsAIFunction());
+
+        using IHost host = Host.CreateDefaultBuilder()
+            .ConfigureServices(services =>
+            {
+                services.AddMcpServer()
+                    .WithStdioServerTransport()
+                    .WithTools(new[] { tool });
+            })
+            .Build();
+
+        await host.RunAsync();
+    }
+}
 ```
 
 The agent is now available as an MCP tool over STDIO.
@@ -680,31 +743,39 @@ dotnet add package OpenTelemetry.Exporter.Console
 ### Steps
 
 ```csharp
+using System;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
-// Set up tracer
-using var tracerProvider = Sdk.CreateTracerProviderBuilder()
-    .AddSource("agent-telemetry-source")
-    .AddConsoleExporter()
-    .Build();
+internal class Program
+{
+    private static async Task Main(string[] args)
+    {
+        const string sourceName = "agent-telemetry-source";
 
-IChatClient chatClient = AgentConfig.GetChatClient();
+        using var tracerProvider = Sdk.CreateTracerProviderBuilder()
+            .AddSource(sourceName)
+            .AddConsoleExporter()
+            .Build();
 
-// Create base agent
-AIAgent baseAgent = new ChatClientAgent(
-    chatClient,
-    instructions: "You are good at telling jokes.",
-    name: "Joker");
+        IChatClient chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-// Add telemetry
-AIAgent agentWithTelemetry = baseAgent.AsBuilder()
-    .UseOpenTelemetry(sourceName: "agent-telemetry-source")
-    .Build();
+        AIAgent baseAgent = new ChatClientAgent(
+            chatClient,
+            instructions: "You are good at telling jokes.",
+            name: "Joker");
 
-// Use agent - telemetry will be logged
-var reply = await agentWithTelemetry.RunAsync("Tell me a joke about a pirate.");
-Console.WriteLine(reply.Text);
+        AIAgent agentWithTelemetry = baseAgent.AsBuilder()
+            .UseOpenTelemetry(sourceName: sourceName)
+            .Build();
+
+        AgentRunResponse reply = await agentWithTelemetry.RunAsync("Tell me a joke about a pirate.");
+        Console.WriteLine(reply.Text);
+    }
+}
 ```
 
 You'll see trace data including:
@@ -719,72 +790,94 @@ You'll see trace data including:
 
 **Goal**: Intercept and customize agent behavior with middleware.
 
-### Agent-Run Middleware
+### Complete Code
 
 ```csharp
-async Task<AgentRunResponse> CustomAgentRunMiddleware(
-    IEnumerable<ChatMessage> messages,
-    AgentThread? thread,
-    AgentRunOptions? options,
-    AIAgent innerAgent,
-    CancellationToken cancellationToken)
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+
+internal class Program
 {
-    Console.WriteLine($"Incoming message count: {messages.Count()}");
-    var response = await innerAgent.RunAsync(messages, thread, options, cancellationToken)
-        .ConfigureAwait(false);
-    Console.WriteLine($"Outgoing message count: {response.Messages.Count}");
-    return response;
+    private static async Task Main(string[] args)
+    {
+        IChatClient chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
+
+        AIAgent baseAgent = new ChatClientAgent(
+            chatClient,
+            instructions: "You are a helpful assistant focused on Jamaican music history.",
+            name: "MiddlewareDemo");
+
+        AIAgent agentWithRunMiddleware = baseAgent.AsBuilder()
+            .Use(CustomAgentRunMiddleware)
+            .Build();
+
+        AgentRunResponse runResponse = await agentWithRunMiddleware.RunAsync(
+            "Give me a one-sentence history of ska.");
+        Console.WriteLine($"Run middleware response: {runResponse.Text}");
+
+        AIAgent agentWithFunctionMiddleware = baseAgent.AsBuilder()
+            .Use(CustomFunctionCallingMiddleware)
+            .Build();
+
+        // Attach this agent to tools before running to observe function-call logs.
+        _ = agentWithFunctionMiddleware;
+
+        IChatClient instrumentedChatClient = chatClient.AsBuilder()
+            .Use(getResponseFunc: CustomChatClientMiddleware, getStreamingResponseFunc: null)
+            .Build();
+
+        AIAgent agent = new ChatClientAgent(
+            instrumentedChatClient,
+            instructions: "You are a helpful assistant.");
+
+        AgentRunResponse finalResponse = await agent.RunAsync(
+            "Summarize the rise of dancehall music in two sentences.");
+        Console.WriteLine($"Chat client middleware response: {finalResponse.Text}");
+    }
+
+    private static async Task<AgentRunResponse> CustomAgentRunMiddleware(
+        IEnumerable<ChatMessage> messages,
+        AgentThread? thread,
+        AgentRunOptions? options,
+        AIAgent innerAgent,
+        CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"Incoming message count: {messages.Count()}");
+        AgentRunResponse response = await innerAgent.RunAsync(messages, thread, options, cancellationToken);
+        Console.WriteLine($"Outgoing message count: {response.Messages.Count}");
+        return response;
+    }
+
+    private static async ValueTask<object?> CustomFunctionCallingMiddleware(
+        AIAgent agent,
+        FunctionInvocationContext context,
+        Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
+        CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"Function Name: {context.Function.Name}");
+        object? result = await next(context, cancellationToken);
+        Console.WriteLine($"Function Call Result: {result}");
+        return result;
+    }
+
+    private static async Task<ChatResponse> CustomChatClientMiddleware(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options,
+        IChatClient innerClient,
+        CancellationToken cancellationToken)
+    {
+        Console.WriteLine($"LLM Request: {messages.Count()} message(s)");
+        ChatResponse response = await innerClient.GetResponseAsync(messages, options, cancellationToken);
+        Console.WriteLine($"LLM Response: {response.Messages.Count} message(s)");
+        return response;
+    }
 }
-
-// Attach middleware
-var middlewareAgent = baseAgent.AsBuilder()
-    .Use(CustomAgentRunMiddleware)
-    .Build();
-```
-
-### Function-Calling Middleware
-
-```csharp
-async ValueTask<object?> CustomFunctionCallingMiddleware(
-    AIAgent agent,
-    FunctionInvocationContext context,
-    Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
-    CancellationToken cancellationToken)
-{
-    Console.WriteLine($"Function Name: {context.Function.Name}");
-    var result = await next(context, cancellationToken);
-    Console.WriteLine($"Function Call Result: {result}");
-    return result;
-}
-
-// Attach middleware
-middlewareAgent = baseAgent.AsBuilder()
-    .Use(CustomFunctionCallingMiddleware)
-    .Build();
-```
-
-### Chat Client Middleware
-
-```csharp
-async Task<ChatResponse> CustomChatClientMiddleware(
-    IEnumerable<ChatMessage> messages,
-    ChatOptions? options,
-    IChatClient innerClient,
-    CancellationToken cancellationToken)
-{
-    Console.WriteLine($"LLM Request: {messages.Count()} message(s)");
-    var response = await innerClient.GetResponseAsync(messages, options, cancellationToken);
-    Console.WriteLine($"LLM Response: {response.Messages.Count} message(s)");
-    return response;
-}
-
-// Attach to chat client
-var instrumentedChatClient = chatClient.AsBuilder()
-    .Use(getResponseFunc: CustomChatClientMiddleware, getStreamingResponseFunc: null)
-    .Build();
-
-AIAgent agent = new ChatClientAgent(instrumentedChatClient,
-    instructions: "You are a helpful assistant.");
 ```
 
 ---
@@ -793,42 +886,51 @@ AIAgent agent = new ChatClientAgent(instrumentedChatClient,
 
 **Goal**: Save and restore conversation state.
 
-### Steps
+### Complete Code
 
 ```csharp
-IChatClient chatClient = AgentConfig.GetChatClient();
+using System;
+using System.IO;
+using System.Text.Json;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 
-// Create agent and thread
-AIAgent agent = new ChatClientAgent(
-    chatClient,
-    instructions: "You are a helpful assistant.",
-    name: "Assistant");
-AgentThread thread = agent.GetNewThread();
+internal class Program
+{
+    private static async Task Main(string[] args)
+    {
+        IChatClient chatClient = AgentConfig.GetChatClient();
+        Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
-// Have a conversation
-Console.WriteLine(await agent.RunAsync("Tell me a short pirate joke.", thread));
+        AIAgent agent = new ChatClientAgent(
+            chatClient,
+            instructions: "You are a helpful assistant.",
+            name: "Assistant");
 
-// Serialize thread
-JsonElement serializedThread = thread.Serialize();
-string threadJson = JsonSerializer.Serialize(serializedThread, JsonSerializerOptions.Web);
+        AgentThread thread = agent.GetNewThread();
 
-// Save to file
-string filePath = Path.Combine(Path.GetTempPath(), "agent_thread.json");
-await File.WriteAllTextAsync(filePath, threadJson);
+        AgentRunResponse initialResponse = await agent.RunAsync(
+            "Tell me a short pirate joke.",
+            thread);
+        Console.WriteLine(initialResponse.Text);
 
-// --- Later, resume conversation ---
+        JsonElement serializedThread = thread.Serialize();
+        string filePath = Path.Combine(Path.GetTempPath(), "agent_thread.json");
+        await File.WriteAllTextAsync(
+            filePath,
+            JsonSerializer.Serialize(serializedThread, JsonSerializerOptions.Web));
 
-// Load from file
-string loadedJson = await File.ReadAllTextAsync(filePath);
-JsonElement reloaded = JsonSerializer.Deserialize<JsonElement>(loadedJson);
+        string loadedJson = await File.ReadAllTextAsync(filePath);
+        JsonElement reloaded = JsonSerializer.Deserialize<JsonElement>(loadedJson);
 
-// Deserialize thread
-AgentThread resumedThread = agent.DeserializeThread(reloaded);
+        AgentThread resumedThread = agent.DeserializeThread(reloaded);
 
-// Continue conversation
-Console.WriteLine(await agent.RunAsync(
-    "Now tell that joke in the voice of a parrot.",
-    resumedThread));
+        AgentRunResponse followUp = await agent.RunAsync(
+            "Now tell that joke in the voice of a parrot.",
+            resumedThread);
+        Console.WriteLine(followUp.Text);
+    }
+}
 ```
 
 The agent remembers the previous joke context!

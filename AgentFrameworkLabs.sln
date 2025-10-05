@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab03_MultiTurnAgent", "Lab
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab04_ToolCallAgent", "Lab04_ToolCallAgent\Lab04_ToolCallAgent.csproj", "{118AF545-8389-4411-B9D4-99A1995B70A5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab05_ToolHITLCallAgent", "Lab05_ToolHITLCallAgent\Lab05_ToolHITLCallAgent.csproj", "{204C7F74-9385-4C75-934E-4F20AC5D6C7A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|x64.Build.0 = Release|Any CPU
 		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|x86.ActiveCfg = Release|Any CPU
 		{118AF545-8389-4411-B9D4-99A1995B70A5}.Release|x86.Build.0 = Release|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Debug|x64.Build.0 = Debug|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Debug|x86.Build.0 = Debug|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Release|x64.ActiveCfg = Release|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Release|x64.Build.0 = Release|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Release|x86.ActiveCfg = Release|Any CPU
+		{204C7F74-9385-4C75-934E-4F20AC5D6C7A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
