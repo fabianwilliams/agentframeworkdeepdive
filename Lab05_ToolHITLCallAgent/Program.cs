@@ -1,4 +1,6 @@
-﻿using System;
+﻿#pragma warning disable MEAI001
+
+using System;
 using System.ComponentModel;
 using System.Linq;
 using Microsoft.Agents.AI;
@@ -24,9 +26,7 @@ internal class Program
         Console.WriteLine($"🤖 Using: {AgentConfig.GetProviderName()}\n");
 
         AIFunction weatherFunc = AIFunctionFactory.Create(GetWeather);
-#pragma warning disable MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         AIFunction approvalRequiredWeatherFunc = new ApprovalRequiredAIFunction(weatherFunc);
-#pragma warning restore MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 
         AIAgent agent = new ChatClientAgent(
             chatClient,
@@ -39,25 +39,30 @@ internal class Program
             "What's the weather like in Amsterdam?",
             thread);
 
-#pragma warning disable MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         var approvalRequests = response.Messages
             .SelectMany(message => message.Contents)
             .OfType<FunctionApprovalRequestContent>()
             .ToList();
 
-
         if (approvalRequests.Count > 0)
         {
             FunctionApprovalRequestContent requestContent = approvalRequests[0];
             Console.WriteLine($"Approval required for: '{requestContent.FunctionCall.Name}'");
-#pragma warning restore MEAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+            Console.Write("Approve tool execution? (y/n): ");
+            string userInput = Console.ReadLine()?.Trim() ?? string.Empty;
+            bool approved = userInput.StartsWith("y", StringComparison.OrdinalIgnoreCase);
+
             ChatMessage approvalMessage = new ChatMessage(ChatRole.User, new[]
             {
-                requestContent.CreateResponse(approved: true)
+                requestContent.CreateResponse(approved: approved)
             });
 
             AgentRunResponse finalResponse = await agent.RunAsync(approvalMessage, thread);
-            Console.WriteLine(finalResponse.Text);
+
+            Console.WriteLine(approved
+                ? $"\n✅ Approved. Result:\n{finalResponse.Text}"
+                : "\n🚫 Tool call denied. Agent continued without executing the function.");
         }
     }
 }
